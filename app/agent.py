@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import re
 from typing import Literal
 
@@ -14,10 +15,12 @@ except Exception:  # pragma: no cover - optional at runtime
     genai = None
 
 Route = Literal['openclaw_remote', 'web_search+gemini', 'gemini', 'ollama', 'fallback']
+logger = logging.getLogger(__name__)
 
 
 class AgentRouter:
     """OpenClaw-style orchestration: tool selection + model routing."""
+    _gemini_configured = False
 
     WEB_SEARCH_HINTS = {
         'search',
@@ -43,8 +46,9 @@ class AgentRouter:
     }
 
     def __init__(self) -> None:
-        if settings.google_api_key and genai:
+        if settings.google_api_key and genai and not self.__class__._gemini_configured:
             genai.configure(api_key=settings.google_api_key)
+            self.__class__._gemini_configured = True
 
     async def run(self, query: str) -> tuple[str, Route]:
         cleaned_query = ' '.join(query.split())
@@ -94,6 +98,7 @@ class AgentRouter:
             data = response.json()
             return data.get('answer') or data.get('response')
         except Exception:
+            logger.exception('OpenClaw remote request failed.')
             return None
 
     def _needs_search(self, query: str) -> bool:
@@ -118,6 +123,7 @@ class AgentRouter:
                     href = result.get('href', '')
                     snippets.append(f"- {title}: {body} ({href})")
         except Exception:
+            logger.exception('Web search failed.')
             return []
         return snippets
 
@@ -136,6 +142,7 @@ class AgentRouter:
             data = response.json()
             return data.get('response', '').strip() or None
         except Exception:
+            logger.exception('Ollama request failed.')
             return None
 
     async def _ask_gemini(self, query: str) -> str | None:
@@ -148,6 +155,7 @@ class AgentRouter:
             text = getattr(response, 'text', None)
             return text.strip() if text else None
         except Exception:
+            logger.exception('Gemini request failed.')
             return None
 
     def _build_search_prompt(self, query: str, snippets: list[str]) -> str:
