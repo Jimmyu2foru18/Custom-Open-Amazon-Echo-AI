@@ -1,4 +1,4 @@
-# Custom Open Amazon Echo AI (Prototype)
+# Custom Open Amazon Echo AI (Prototype) WIP
 
 A working starter prototype that lets an Amazon Echo/Alexa skill send speech requests to your own Python backend, route the request through an OpenClaw-style agent flow, and return spoken answers.
 
